@@ -1,0 +1,271 @@
+:root {
+  --bg-main: #242424;
+  --bg-chrome: #1f1f1f;
+  --accent: #5b5fc7;
+  --accent-hover: #6e72d4;
+  --border: #303030;
+  --hover: #2f2f2f;
+  --text: #e6e6e6;
+  --text-muted: #9a9a9a;
+  --close-hover: #c42b1c;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-main);
+  color: var(--text);
+  font-size: 12px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Thanh cuộn mảnh, tối cho chính UI của app */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #4a4a4a transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #4a4a4a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #5e5e5e;
+}
+
+#titlebar {
+  flex: 0 0 30px;
+  background: var(--bg-chrome);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 0 0 8px;
+  -webkit-app-region: drag;
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+
+#titlebar-drag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+#titlebar .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: 0 0 auto;
+}
+
+#titlebar .title-text {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Hàng tab nằm riêng dưới thanh tiêu đề: đủ chỗ cho 6 tab ở cửa sổ hẹp,
+   thừa thì cuộn ngang (ẩn thanh cuộn cho gọn). */
+#tabs {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  padding: 4px 6px;
+  background: var(--bg-chrome);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  user-select: none;
+}
+
+#tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* Vạch ngăn giữa các nhóm nền tảng (Facebook / Instagram / TikTok) */
+.tab-divider {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 14px;
+  margin: 0 4px;
+  background: var(--border);
+}
+
+#tabs .tab {
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+#tabs .tab:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+#tabs .tab.active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+#tabs .tab.active:hover {
+  background: var(--accent-hover);
+}
+
+#titlebar-buttons {
+  display: flex;
+  align-self: stretch;
+  -webkit-app-region: no-drag;
+}
+
+#titlebar-buttons button {
+  width: 38px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+#titlebar-buttons button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+#btn-close:hover {
+  background: var(--close-hover);
+  color: #fff;
+}
+
+/* Panel cài đặt (⚙) nổi phía trên vùng nội dung, góc phải */
+#settings-panel {
+  position: absolute;
+  top: 64px;
+  right: 8px;
+  z-index: 10;
+  width: 250px;
+  background: var(--bg-chrome);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  user-select: none;
+}
+
+#settings-panel.hidden {
+  display: none;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.settings-zoom {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.settings-zoom button,
+#shortcut-btn {
+  background: var(--hover);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1;
+  padding: 5px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.settings-zoom button:hover,
+#shortcut-btn:hover {
+  background: #3a3a3a;
+}
+
+#panel-zoom-label,
+#app-zoom-label {
+  min-width: 42px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+#shortcut-btn.recording {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+#settings-hint {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* Vùng nội dung tự giãn theo cửa sổ, không dùng calc() nên resize mượt hơn */
+#content {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--bg-main);
+}
+
+.page-view {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-main);
+}
+
+.page-view.hidden {
+  display: none;
+}

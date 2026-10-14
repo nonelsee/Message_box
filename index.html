@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Workspace Chat</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Thanh tiêu đề tự vẽ, kéo được -->
+  <div id="titlebar">
+    <div id="titlebar-drag">
+      <span class="dot"></span>
+      <span class="title-text">Workspace Chat</span>
+    </div>
+    <div id="titlebar-buttons">
+      <button id="btn-settings" title="Cài đặt">&#9881;</button>
+      <button id="btn-min" title="Thu nhỏ">&#8211;</button>
+      <button id="btn-hide" title="Ẩn xuống khay">&#9660;</button>
+      <button id="btn-close" title="Đóng">&#10005;</button>
+    </div>
+  </div>
+
+  <!-- Hàng tab và các webview đều dựng từ mảng VIEWS trong script bên dưới -->
+  <nav id="tabs"></nav>
+
+  <!-- Panel cài đặt, bật/tắt bằng nút bánh răng (⚙) trên thanh tiêu đề -->
+  <div id="settings-panel" class="hidden">
+    <div class="settings-row">
+      <span>Cỡ nội dung</span>
+      <span class="settings-zoom">
+        <button id="panel-zoom-out" title="Thu nhỏ trang web (Ctrl -)">&#8722;</button>
+        <button id="panel-zoom-label" title="Về cỡ mặc định (Ctrl 0)"></button>
+        <button id="panel-zoom-in" title="Phóng to trang web (Ctrl +)">+</button>
+      </span>
+    </div>
+    <div class="settings-row">
+      <span>Cỡ cửa sổ</span>
+      <span class="settings-zoom">
+        <button id="app-zoom-out" title="Thu nhỏ cửa sổ app (như kéo góc vào trong)">&#8722;</button>
+        <button id="app-zoom-label" title="Về cỡ cửa sổ mặc định"></button>
+        <button id="app-zoom-in" title="Phóng to cửa sổ app (như kéo góc ra ngoài)">+</button>
+      </span>
+    </div>
+    <div class="settings-row">
+      <span>Phím ẩn/hiện app</span>
+      <button id="shortcut-btn" title="Bấm vào rồi gõ tổ hợp phím mới"></button>
+    </div>
+    <p id="settings-hint">Bấm vào ô phím tắt rồi gõ tổ hợp mới (kèm Ctrl/Alt, hoặc phím F1–F24). Esc để huỷ.</p>
+  </div>
+
+  <main id="content"></main>
+
+  <script>
+    const { minimize, hide, close } = window.windowControls;
+    document.getElementById('btn-min').addEventListener('click', minimize);
+    document.getElementById('btn-hide').addEventListener('click', hide);
+    document.getElementById('btn-close').addEventListener('click', close);
+
+    // Muốn thêm/bớt/đổi thứ tự dịch vụ thì chỉ sửa mảng này.
+    // group = nhóm nền tảng, chỉ dùng để vẽ vạch ngăn giữa các nhóm tab.
+    const VIEWS = [
+      { id: 'messenger', group: 'fb', label: 'Chat',    tip: 'Messenger',          url: 'https://www.messenger.com/' },
+      { id: 'facebook',  group: 'fb', label: 'Feed',    tip: 'Facebook',           url: 'https://www.facebook.com/' },
+      { id: 'ig-chat',   group: 'ig', label: 'IG Chat', tip: 'Tin nhắn Instagram', url: 'https://www.instagram.com/direct/inbox/', cleanUA: true },
+      { id: 'instagram', group: 'ig', label: 'IG',      tip: 'Instagram',          url: 'https://www.instagram.com/',              cleanUA: true },
+      { id: 'tt-chat',   group: 'tt', label: 'TT Chat', tip: 'Tin nhắn TikTok',    url: 'https://www.tiktok.com/messages',         cleanUA: true },
+      { id: 'tiktok',    group: 'tt', label: 'TikTok',  tip: 'TikTok',             url: 'https://www.tiktok.com/',                 cleanUA: true },
+    ];
+
+    // Dùng chung một partition: mỗi nền tảng chỉ phải đăng nhập một lần là cả
+    // tab feed lẫn tab tin nhắn của nó đều nhận phiên đăng nhập đó.
+    const PARTITION = 'persist:messenger';
+    const DEFAULT_VIEW = 'messenger';
+
+    // Instagram/TikTok soi user agent, thấy token "Electron" là dễ trả giao diện
+    // lạ hoặc chặn đăng nhập. Gỡ phần nhận dạng app đi nhưng giữ nguyên số hiệu
+    // Chrome thật của Electron, để không khai sai phiên bản engine.
+    const CLEAN_UA = navigator.userAgent
+      .replace(/\s*Electron\/\S+/, '')
+      .replace(/(\(KHTML, like Gecko\))\s+\S+\/\S+\s+(?=Chrome\/)/, '$1 ');
+
+    // Chỉ chỉnh thanh cuộn cho khớp theme tối, không đụng tới nội dung trang.
+    const scrollbarCSS = `
+      * { scrollbar-width: thin; scrollbar-color: #4a4a4a transparent; }
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb {
+        background: #4a4a4a;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover { background: #5e5e5e; }
+      ::-webkit-scrollbar-corner { background: transparent; }
+    `;
+
+    const tabsEl = document.getElementById('tabs');
+    const contentEl = document.getElementById('content');
+    const settingsPanel = document.getElementById('settings-panel');
+    const settingsBtn = document.getElementById('btn-settings');
+    const panelZoomLabel = document.getElementById('panel-zoom-label');
+    const appZoomLabel = document.getElementById('app-zoom-label');
+    const shortcutBtn = document.getElementById('shortcut-btn');
+    const settingsHint = document.getElementById('settings-hint');
+    const entries = new Map(); // id -> { view, tab, webview }
+    const loaded = new Set();
+    const readyViews = new Set(); // webview chỉ setZoomFactor được sau dom-ready
+
+    // ---- Hai mức chỉnh cỡ riêng, đều nằm trong panel ⚙ ----
+    // 1) "Cỡ nội dung": phóng/thu trang web trong webview (Ctrl +/-/0).
+    //    Mặc định responsive theo màn hình: màn lớn chạy scaling 100%
+    //    (24"/27") là 75%, màn laptop scaling 125–150% là 90%.
+    // 2) "Cỡ cửa sổ": đổi kích thước cửa sổ thật quanh mốc 420x560, hệt như
+    //    kéo góc cửa sổ bằng chuột — nội dung bên trong không đổi mật độ.
+    // Mỗi mức được nhớ riêng cho các lần mở sau.
+    const CONTENT_ZOOM_MIN = 0.5;
+    const CONTENT_ZOOM_MAX = 1.5;
+    const WINDOW_SCALE_MIN = 0.8; // 0.8 x 420x560 vẫn trên minWidth/minHeight của cửa sổ
+    const WINDOW_SCALE_MAX = 2.0;
+    const ZOOM_STEP = 0.1;
+
+    function defaultZoom() {
+      const largeScreen = window.devicePixelRatio <= 1 && window.screen.width >= 1920;
+      return largeScreen ? 0.75 : 0.9;
+    }
+
+    function loadZoom(key, fallback) {
+      const value = parseFloat(localStorage.getItem(key));
+      return Number.isFinite(value) ? value : fallback;
+    }
+
+    function clampZoom(value, min, max) {
+      return Math.round(Math.min(max, Math.max(min, value)) * 10) / 10;
+    }
+
+    let contentZoom = loadZoom('contentZoom', defaultZoom());
+    let windowScale = loadZoom('windowScale', 1); // key mới: 'appZoom' cũ mang nghĩa khác
+
+    function applyContentZoom() {
+      contentZoom = clampZoom(contentZoom, CONTENT_ZOOM_MIN, CONTENT_ZOOM_MAX);
+      for (const webview of readyViews) webview.setZoomFactor(contentZoom);
+      panelZoomLabel.textContent = Math.round(contentZoom * 100) + '%';
+      localStorage.setItem('contentZoom', String(contentZoom));
+    }
+
+    function applyWindowScale() {
+      windowScale = clampZoom(windowScale, WINDOW_SCALE_MIN, WINDOW_SCALE_MAX);
+      window.zoomBridge.setWindowScale(windowScale);
+      appZoomLabel.textContent = Math.round(windowScale * 100) + '%';
+      localStorage.setItem('windowScale', String(windowScale));
+    }
+
+    // Ctrl +/-/0 gắn với cỡ nội dung (thứ chỉnh thường xuyên nhất)
+    function handleZoom(cmd) {
+      if (cmd === 'in') contentZoom += ZOOM_STEP;
+      else if (cmd === 'out') contentZoom -= ZOOM_STEP;
+      else contentZoom = defaultZoom();
+      applyContentZoom();
+    }
+
+    function handleWindowScale(cmd) {
+      if (cmd === 'in') windowScale += ZOOM_STEP;
+      else if (cmd === 'out') windowScale -= ZOOM_STEP;
+      else windowScale = 1;
+      applyWindowScale();
+    }
+
+    let previousGroup = null;
+    for (const view of VIEWS) {
+      if (previousGroup && view.group !== previousGroup) {
+        const divider = document.createElement('span');
+        divider.className = 'tab-divider';
+        tabsEl.appendChild(divider);
+      }
+      previousGroup = view.group;
+
+      const tab = document.createElement('button');
+      tab.className = 'tab';
+      tab.textContent = view.label;
+      tab.title = view.tip;
+      tab.addEventListener('click', () => showView(view.id));
+      tabsEl.appendChild(tab);
+
+      // Đặt hết thuộc tính trước khi gắn vào DOM: webview đọc partition/useragent
+      // đúng một lần lúc khởi tạo, gán sau sẽ không có tác dụng.
+      const webview = document.createElement('webview');
+      webview.className = 'page-view hidden';
+      webview.setAttribute('partition', PARTITION);
+      webview.setAttribute('allowpopups', '');
+      if (view.cleanUA) webview.setAttribute('useragent', CLEAN_UA);
+      webview.addEventListener('dom-ready', () => {
+        webview.insertCSS(scrollbarCSS);
+        readyViews.add(webview);
+        webview.setZoomFactor(contentZoom);
+      });
+      // Zoom được Chromium lưu theo origin: điều hướng sang origin khác
+      // (VD: redirect sang trang đăng nhập) sẽ về 100%, nên set lại mỗi lần.
+      webview.addEventListener('did-navigate', () => {
+        if (readyViews.has(webview)) webview.setZoomFactor(contentZoom);
+      });
+      contentEl.appendChild(webview);
+
+      entries.set(view.id, { view, tab, webview });
+    }
+
+    applyContentZoom(); // áp hai mức đã lưu ngay khi mở app
+    applyWindowScale();
+
+    // Phím tắt khi focus đang ở UI của app; lúc gõ trong webview thì main
+    // process bắt hộ và gửi về qua zoomBridge.
+    document.addEventListener('keydown', (e) => {
+      if (!e.ctrlKey || e.altKey) return;
+      if (e.key === '=' || e.key === '+') { e.preventDefault(); handleZoom('in'); }
+      else if (e.key === '-') { e.preventDefault(); handleZoom('out'); }
+      else if (e.key === '0') { e.preventDefault(); handleZoom('reset'); }
+    });
+    window.zoomBridge.onCommand(handleZoom);
+
+    // ---- Panel cài đặt (⚙) ----
+    const HINT_DEFAULT = settingsHint.textContent;
+
+    settingsBtn.addEventListener('click', () => settingsPanel.classList.toggle('hidden'));
+    document.getElementById('panel-zoom-out').addEventListener('click', () => handleZoom('out'));
+    document.getElementById('panel-zoom-in').addEventListener('click', () => handleZoom('in'));
+    panelZoomLabel.addEventListener('click', () => handleZoom('reset'));
+    document.getElementById('app-zoom-out').addEventListener('click', () => handleWindowScale('out'));
+    document.getElementById('app-zoom-in').addEventListener('click', () => handleWindowScale('in'));
+    appZoomLabel.addEventListener('click', () => handleWindowScale('reset'));
+
+    // Bấm ra ngoài panel (trong vùng chrome của app) thì đóng panel.
+    // Lưu ý: click vào trong webview không bubble lên đây, chấp nhận được.
+    document.addEventListener('click', (e) => {
+      if (settingsPanel.classList.contains('hidden')) return;
+      if (settingsPanel.contains(e.target) || settingsBtn.contains(e.target)) return;
+      settingsPanel.classList.add('hidden');
+    });
+
+    // ---- Ghi lại phím tắt ẩn/hiện app ----
+    let recordingShortcut = false;
+
+    function accelForDisplay(accel) {
+      return accel.split('+').join(' + ').replace('CommandOrControl', 'Ctrl');
+    }
+
+    async function refreshShortcutLabel() {
+      shortcutBtn.textContent = accelForDisplay(await window.settingsBridge.getToggleShortcut());
+    }
+
+    function stopRecordingShortcut() {
+      recordingShortcut = false;
+      shortcutBtn.classList.remove('recording');
+      refreshShortcutLabel();
+    }
+
+    shortcutBtn.addEventListener('click', () => {
+      if (recordingShortcut) return;
+      recordingShortcut = true;
+      settingsHint.textContent = HINT_DEFAULT;
+      shortcutBtn.textContent = 'Gõ tổ hợp phím…';
+      shortcutBtn.classList.add('recording');
+    });
+
+    // Đổi KeyboardEvent thành chuỗi accelerator của Electron. Trả về null nếu
+    // tổ hợp chưa dùng được (đang giữ mỗi phím bổ trợ, phím không hỗ trợ...).
+    function eventToAccelerator(e) {
+      const mods = [];
+      if (e.ctrlKey || e.metaKey) mods.push('CommandOrControl');
+      if (e.altKey) mods.push('Alt');
+      if (e.shiftKey) mods.push('Shift');
+
+      let key = null;
+      if (/^Key[A-Z]$/.test(e.code)) key = e.code.slice(3);
+      else if (/^Digit[0-9]$/.test(e.code)) key = e.code.slice(5);
+      else if (/^F([1-9]|1\d|2[0-4])$/.test(e.key)) key = e.key;
+      else {
+        const named = {
+          ' ': 'Space', 'Tab': 'Tab', 'Enter': 'Enter', 'Backspace': 'Backspace',
+          'Delete': 'Delete', 'Home': 'Home', 'End': 'End', 'PageUp': 'PageUp',
+          'PageDown': 'PageDown', 'ArrowUp': 'Up', 'ArrowDown': 'Down',
+          'ArrowLeft': 'Left', 'ArrowRight': 'Right',
+        };
+        if (named[e.key]) key = named[e.key];
+        else if (e.key.length === 1 && !/\s/.test(e.key)) key = e.key.toUpperCase();
+      }
+      if (!key) return null;
+
+      // Phím "trần" sẽ bị chiếm trên TOÀN hệ thống (gõ chữ A ở app khác cũng
+      // kích hoạt) -> bắt buộc kèm Ctrl/Alt, trừ F1–F24; Shift đơn lẻ không đủ.
+      const hasStrongMod = e.ctrlKey || e.metaKey || e.altKey;
+      if (!hasStrongMod && !/^F\d/.test(key)) return null;
+
+      return mods.concat(key).join('+');
+    }
+
+    window.addEventListener('keydown', async (e) => {
+      if (!recordingShortcut) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Escape') { stopRecordingShortcut(); return; }
+      if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return; // đang giữ phím bổ trợ, chờ tiếp
+
+      const accel = eventToAccelerator(e);
+      if (!accel) {
+        settingsHint.textContent = 'Tổ hợp cần kèm Ctrl hoặc Alt (riêng F1–F24 được đứng một mình). Gõ lại nhé.';
+        return;
+      }
+      const result = await window.settingsBridge.setToggleShortcut(accel);
+      stopRecordingShortcut();
+      settingsHint.textContent = result.ok
+        ? HINT_DEFAULT
+        : 'Không đăng ký được tổ hợp này (có thể app khác đang giữ nó). Vẫn dùng phím cũ.';
+    }, true);
+
+    refreshShortcutLabel();
+
+    // Tab nào chưa mở lần nào thì chưa load, đỡ tốn RAM/CPU lúc khởi động.
+    function showView(id) {
+      if (!loaded.has(id)) {
+        loaded.add(id);
+        entries.get(id).webview.src = entries.get(id).view.url;
+      }
+
+      for (const [key, entry] of entries) {
+        entry.webview.classList.toggle('hidden', key !== id);
+        entry.tab.classList.toggle('active', key === id);
+      }
+    }
+
+    showView(DEFAULT_VIEW);
+  </script>
+</body>
+</html>

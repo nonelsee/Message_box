@@ -1,0 +1,19 @@
+# Thư viện cài bằng npm (chạy `npm install` để tạo lại)
+node_modules/
+
+# Kết quả build (exe, zip, win-unpacked...) - file nặng, phát hành qua GitHub Releases
+dist/
+
+# Bí mật / token (VD: GH_TOKEN khi publish)
+.env
+.env.*
+
+# Log
+*.log
+npm-debug.log*
+
+# File rác của hệ điều hành / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
