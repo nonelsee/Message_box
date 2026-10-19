@@ -240,6 +240,14 @@ ipcMain.on('set-window-scale', (_e, factor) => {
   mainWindow.setBounds({ x, y: bounds.y, width, height });
 });
 
+// "Độ trong suốt": làm mờ cả cửa sổ (Windows/macOS hỗ trợ; Linux tuỳ compositor).
+// Giá trị được renderer nhớ trong localStorage và gửi lại mỗi lần mở app.
+ipcMain.on('set-window-opacity', (_e, opacity) => {
+  const o = Number(opacity);
+  if (!mainWindow || !Number.isFinite(o) || o < 0.3 || o > 1) return;
+  mainWindow.setOpacity(o);
+});
+
 // ---- IPC cho panel cài đặt (⚙) ----
 ipcMain.handle('get-toggle-shortcut', () => settings.toggleShortcut);
 

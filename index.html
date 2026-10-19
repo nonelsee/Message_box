@@ -42,6 +42,13 @@
       </span>
     </div>
     <div class="settings-row">
+      <span>Độ trong suốt</span>
+      <span class="settings-zoom settings-opacity">
+        <input id="opacity-slider" type="range" min="30" max="100" step="5" title="Kéo để chỉnh độ mờ của cả cửa sổ app" />
+        <button id="opacity-label" title="Về mức đục hoàn toàn (100%)"></button>
+      </span>
+    </div>
+    <div class="settings-row">
       <span>Phím ẩn/hiện app</span>
       <button id="shortcut-btn" title="Bấm vào rồi gõ tổ hợp phím mới"></button>
     </div>
@@ -65,6 +72,7 @@
       { id: 'instagram', group: 'ig', label: 'IG',      tip: 'Instagram',          url: 'https://www.instagram.com/',              cleanUA: true },
       { id: 'tt-chat',   group: 'tt', label: 'TT Chat', tip: 'Tin nhắn TikTok',    url: 'https://www.tiktok.com/messages',         cleanUA: true },
       { id: 'tiktok',    group: 'tt', label: 'TikTok',  tip: 'TikTok',             url: 'https://www.tiktok.com/',                 cleanUA: true },
+      { id: 'youtube',   group: 'yt', label: 'YouTube', tip: 'YouTube',            url: 'https://www.youtube.com/',                cleanUA: true, adblock: true },
     ];
 
     // Dùng chung một partition: mỗi nền tảng chỉ phải đăng nhập một lần là cả
@@ -91,6 +99,72 @@
       ::-webkit-scrollbar-thumb:hover { background: #5e5e5e; }
       ::-webkit-scrollbar-corner { background: transparent; }
     `;
+
+    // ---- Chặn quảng cáo YouTube (chỉ áp cho view có adblock: true) ----
+    // Không chặn ở tầng mạng (YouTube soi được và hiện hộp "ad blocker not
+    // allowed"), mà xử lý ngay trong trang: ẩn các ô quảng cáo bằng CSS, còn
+    // quảng cáo video thì tua thẳng tới cuối + bấm "Skip" hộ, nên gần như
+    // không thấy gì. Danh sách selector có thể cần cập nhật khi YouTube đổi DOM.
+    const youtubeAdCSS = `
+      #masthead-ad, #player-ads, #panels ytd-ads-engagement-panel-content-renderer,
+      ytd-ad-slot-renderer, ytd-display-ad-renderer, ytd-in-feed-ad-layout-renderer,
+      ytd-promoted-sparkles-web-renderer, ytd-promoted-video-renderer,
+      ytd-banner-promo-renderer, ytd-statement-banner-renderer,
+      ytd-companion-slot-renderer, ytd-action-companion-ad-renderer,
+      ytd-merch-shelf-renderer, ytd-brand-video-shelf-renderer,
+      ytd-rich-item-renderer:has(ytd-ad-slot-renderer),
+      ytd-rich-section-renderer:has(ytd-statement-banner-renderer),
+      ytm-promoted-video-renderer, ytm-companion-ad-renderer,
+      .ytp-ad-overlay-container, .ytp-ad-text-overlay, .ytp-ad-image-overlay,
+      .ytp-suggested-action, .ytp-featured-product,
+      ytd-enforcement-message-view-model,
+      tp-yt-paper-dialog:has(ytd-enforcement-message-view-model) {
+        display: none !important;
+      }
+    `;
+
+    function youtubeAdSkipper() {
+      if (window.__wcAdSkip) return;
+      window.__wcAdSkip = true;
+      let mutedByUs = false;
+
+      const tick = () => {
+        const player = document.querySelector('.html5-video-player');
+        const video = document.querySelector('video.html5-main-video');
+        const adShowing = !!(player && player.classList.contains('ad-showing'));
+
+        if (adShowing && video) {
+          if (!video.muted) { video.muted = true; mutedByUs = true; }
+          if (Number.isFinite(video.duration) && video.duration > 0) {
+            video.currentTime = video.duration; // nhảy thẳng tới cuối quảng cáo
+          } else {
+            video.playbackRate = 16; // chưa biết độ dài (ad live) thì chạy nhanh
+          }
+        } else if (mutedByUs && video) {
+          video.muted = false;
+          mutedByUs = false;
+        }
+
+        for (const sel of [
+          '.ytp-skip-ad-button', '.ytp-ad-skip-button', '.ytp-ad-skip-button-modern',
+          '.ytp-ad-overlay-close-button', '.ytp-ad-survey-answer-button',
+        ]) {
+          document.querySelectorAll(sel).forEach((b) => b.click());
+        }
+
+        // Hộp "Ad blockers violate YouTube's Terms of Service" chặn video:
+        // gỡ hộp đi và cho video chạy tiếp.
+        const enforcement = document.querySelector('ytd-enforcement-message-view-model');
+        if (enforcement) {
+          const dialog = enforcement.closest('tp-yt-paper-dialog');
+          (dialog || enforcement).remove();
+          document.querySelectorAll('tp-yt-iron-overlay-backdrop').forEach((el) => el.remove());
+          if (video && video.paused) video.play().catch(() => {});
+        }
+      };
+
+      setInterval(tick, 500);
+    }
 
     const tabsEl = document.getElementById('tabs');
     const contentEl = document.getElementById('content');
@@ -163,6 +237,22 @@
       applyWindowScale();
     }
 
+    // ---- Độ trong suốt: làm mờ cả cửa sổ (kể cả nội dung web) ----
+    // Giữ sàn 30% để cửa sổ không "biến mất" tới mức không tìm lại được.
+    const OPACITY_MIN = 0.3;
+    const opacitySlider = document.getElementById('opacity-slider');
+    const opacityLabel = document.getElementById('opacity-label');
+    let windowOpacity = loadZoom('windowOpacity', 1);
+
+    function applyWindowOpacity() {
+      windowOpacity = Math.round(Math.min(1, Math.max(OPACITY_MIN, windowOpacity)) * 20) / 20;
+      window.settingsBridge.setWindowOpacity(windowOpacity);
+      const percent = Math.round(windowOpacity * 100);
+      opacitySlider.value = String(percent);
+      opacityLabel.textContent = percent + '%';
+      localStorage.setItem('windowOpacity', String(windowOpacity));
+    }
+
     let previousGroup = null;
     for (const view of VIEWS) {
       if (previousGroup && view.group !== previousGroup) {
@@ -188,6 +278,10 @@
       if (view.cleanUA) webview.setAttribute('useragent', CLEAN_UA);
       webview.addEventListener('dom-ready', () => {
         webview.insertCSS(scrollbarCSS);
+        if (view.adblock) {
+          webview.insertCSS(youtubeAdCSS);
+          webview.executeJavaScript(`(${youtubeAdSkipper.toString()})()`).catch(() => {});
+        }
         readyViews.add(webview);
         webview.setZoomFactor(contentZoom);
       });
@@ -201,8 +295,17 @@
       entries.set(view.id, { view, tab, webview });
     }
 
-    applyContentZoom(); // áp hai mức đã lưu ngay khi mở app
+    // Lăn chuột trên hàng tab -> cuộn ngang (bánh xe mặc định chỉ cuộn dọc,
+    // mà hàng tab không có chiều dọc để cuộn).
+    tabsEl.addEventListener('wheel', (e) => {
+      if (e.deltaY === 0 || e.deltaX !== 0) return;
+      e.preventDefault();
+      tabsEl.scrollLeft += e.deltaY;
+    }, { passive: false });
+
+    applyContentZoom(); // áp các mức đã lưu ngay khi mở app
     applyWindowScale();
+    applyWindowOpacity();
 
     // Phím tắt khi focus đang ở UI của app; lúc gõ trong webview thì main
     // process bắt hộ và gửi về qua zoomBridge.
@@ -224,6 +327,14 @@
     document.getElementById('app-zoom-out').addEventListener('click', () => handleWindowScale('out'));
     document.getElementById('app-zoom-in').addEventListener('click', () => handleWindowScale('in'));
     appZoomLabel.addEventListener('click', () => handleWindowScale('reset'));
+    opacitySlider.addEventListener('input', () => {
+      windowOpacity = Number(opacitySlider.value) / 100;
+      applyWindowOpacity();
+    });
+    opacityLabel.addEventListener('click', () => {
+      windowOpacity = 1;
+      applyWindowOpacity();
+    });
 
     // Bấm ra ngoài panel (trong vùng chrome của app) thì đóng panel.
     // Lưu ý: click vào trong webview không bubble lên đây, chấp nhận được.
@@ -322,6 +433,8 @@
         entry.webview.classList.toggle('hidden', key !== id);
         entry.tab.classList.toggle('active', key === id);
       }
+      // Tab vừa chọn đang khuất (cửa sổ hẹp) thì cuộn hàng tab tới chỗ nó
+      entries.get(id).tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
 
     showView(DEFAULT_VIEW);

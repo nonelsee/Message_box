@@ -93,24 +93,40 @@ body {
   text-overflow: ellipsis;
 }
 
-/* Hàng tab nằm riêng dưới thanh tiêu đề: đủ chỗ cho 6 tab ở cửa sổ hẹp,
-   thừa thì cuộn ngang (ẩn thanh cuộn cho gọn). */
+/* Hàng tab nằm riêng dưới thanh tiêu đề; cửa sổ hẹp không đủ chỗ thì cuộn
+   ngang: có thanh cuộn mảnh sát mép dưới, lăn chuột trên hàng tab cũng cuộn. */
 #tabs {
   flex: 0 0 auto;
   display: flex;
   gap: 2px;
   align-items: center;
-  padding: 4px 6px;
+  padding: 4px 6px 2px;
   background: var(--bg-chrome);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: none;
+  /* Trả về auto để Chromium chịu áp ::-webkit-scrollbar bên dưới (có
+     scrollbar-width/scrollbar-color khác auto là nó bỏ qua pseudo-element). */
+  scrollbar-width: auto;
+  scrollbar-color: auto;
   user-select: none;
 }
 
 #tabs::-webkit-scrollbar {
-  display: none;
+  height: 4px;
+}
+
+#tabs::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#tabs::-webkit-scrollbar-thumb {
+  background: #4a4a4a;
+  border-radius: 2px;
+}
+
+#tabs::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
 }
 
 /* Vạch ngăn giữa các nhóm nền tảng (Facebook / Instagram / TikTok) */
@@ -232,10 +248,57 @@ body {
 }
 
 #panel-zoom-label,
-#app-zoom-label {
+#app-zoom-label,
+#opacity-label {
   min-width: 42px;
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+#opacity-label {
+  background: var(--hover);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1;
+  padding: 5px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+#opacity-label:hover {
+  background: #3a3a3a;
+}
+
+/* Thanh trượt độ trong suốt, vẽ lại cho khớp theme tối */
+.settings-opacity {
+  gap: 6px;
+}
+
+#opacity-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 90px;
+  height: 4px;
+  background: #4a4a4a;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+#opacity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg-chrome);
+  transition: background-color 0.12s ease;
+}
+
+#opacity-slider::-webkit-slider-thumb:hover {
+  background: var(--accent-hover);
 }
 
 #shortcut-btn.recording {

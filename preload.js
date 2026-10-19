@@ -13,8 +13,9 @@ contextBridge.exposeInMainWorld('zoomBridge', {
   setWindowScale: (factor) => ipcRenderer.send('set-window-scale', factor),
 });
 
-// Đọc/đổi phím tắt ẩn/hiện app từ panel cài đặt
+// Đọc/đổi phím tắt ẩn/hiện app và độ trong suốt cửa sổ từ panel cài đặt
 contextBridge.exposeInMainWorld('settingsBridge', {
   getToggleShortcut: () => ipcRenderer.invoke('get-toggle-shortcut'),
   setToggleShortcut: (accelerator) => ipcRenderer.invoke('set-toggle-shortcut', accelerator),
+  setWindowOpacity: (opacity) => ipcRenderer.send('set-window-opacity', opacity),
 });

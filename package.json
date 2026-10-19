@@ -1,7 +1,7 @@
 {
   "name": "workspace-chat",
   "productName": "Workspace Chat",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Personal messenger wrapper with a Teams-inspired dark theme",
   "author": "Workspace Chat",
   "main": "main.js",
@@ -33,7 +33,7 @@
       {
         "provider": "github",
         "owner": "nonelsee",
-        "repo": "workspace-chat",
+        "repo": "Message_box",
         "releaseType": "release"
       }
     ],

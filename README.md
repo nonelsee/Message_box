@@ -1,7 +1,7 @@
 # Workspace Chat — Hướng dẫn dùng
 
 Đây là app desktop (Electron) nhúng bản web thật của Messenger, Facebook,
-Instagram và TikTok vào một cửa sổ nhỏ, theme tối gọn gàng, có thể thu vào khay
+Instagram, TikTok và YouTube vào một cửa sổ nhỏ, theme tối gọn gàng, có thể thu vào khay
 hệ thống và ẩn/hiện nhanh bằng phím tắt.
 
 ## 1. Cài đặt (chỉ làm 1 lần)
@@ -39,6 +39,7 @@ Hàng tab ngay dưới thanh tiêu đề, chia theo 3 nhóm nền tảng:
 | **IG** | instagram.com | |
 | **TT Chat** | tiktok.com/messages | Tin nhắn TikTok |
 | **TikTok** | tiktok.com | |
+| **YouTube** | youtube.com | Có chặn quảng cáo (xem bên dưới) |
 
 Mỗi tab chỉ thật sự tải trang ở lần đầu bạn bấm vào, nên mở app vẫn nhẹ.
 Các tab dùng chung một phiên lưu trữ, nên đăng nhập Instagram ở tab **IG** là
@@ -52,8 +53,17 @@ không sửa được từ phía app.
 Giao diện web của TikTok thiết kế cho màn hình rộng, ở cửa sổ mặc định 420px sẽ
 khá chật — kéo rộng cửa sổ ra khi dùng tab TikTok.
 
+**Chặn quảng cáo YouTube:** tab YouTube có sẵn bộ lọc chạy ngay trong trang:
+ẩn các ô quảng cáo (đầu trang, trong feed, cạnh video) bằng CSS, còn quảng cáo
+video thì tự tua tới cuối và bấm "Skip" hộ nên gần như không thấy. App cố ý
+**không** chặn ở tầng mạng để YouTube không nhận ra và hiện hộp "ad blockers
+are not allowed"; nếu hộp này vẫn hiện, bộ lọc cũng tự gỡ nó và cho video chạy
+tiếp. Khi YouTube đổi giao diện, có thể cần cập nhật danh sách selector trong
+`youtubeAdCSS` / `youtubeAdSkipper` ở `index.html`.
+
 Muốn thêm/bớt dịch vụ: sửa mảng `VIEWS` ở đầu phần `<script>` trong
-`index.html`, mỗi dòng là một tab.
+`index.html`, mỗi dòng là một tab (thêm `adblock: true` nếu muốn áp bộ lọc
+YouTube cho tab đó).
 
 ## 4. Các thao tác chính
 
@@ -68,8 +78,9 @@ Muốn thêm/bớt dịch vụ: sửa mảng `VIEWS` ở đầu phần `<script>
 | Kéo di chuyển cửa sổ | Kéo vào vùng thanh tiêu đề tối phía trên |
 | Thu nhỏ / phóng to nội dung trang web | ⚙ > nút **− / +** ở dòng "Cỡ nội dung", hoặc **Ctrl −** / **Ctrl +** (kể cả khi đang gõ trong khung chat); **Ctrl 0** hoặc bấm vào số % để về mặc định |
 | Thu nhỏ / phóng to cửa sổ app | ⚙ > nút **− / +** ở dòng "Cỡ cửa sổ" — tác dụng y như kéo góc cửa sổ bằng chuột, mỗi nấc 10% quanh cỡ gốc 420×560; bấm vào số % để về 100% |
+| Làm mờ / trong suốt cửa sổ | ⚙ > kéo thanh trượt ở dòng "Độ trong suốt" (30%–100%, mỗi nấc 5%); bấm vào số % để về 100% (đục hoàn toàn) |
 
-Hai mức này độc lập và đều được nhớ lại cho các lần mở sau. "Cỡ nội dung" có
+Các mức này độc lập và đều được nhớ lại cho các lần mở sau. "Cỡ nội dung" có
 mặc định responsive theo màn hình: màn lớn chạy scaling 100% (24"/27") là
 **75%**, màn laptop scaling 125–150% là **90%** — nhờ vậy chữ trông nhỏ gọn
 như nhau trên mọi màn hình. Kéo góc cửa sổ bằng chuột vẫn dùng bình thường,
@@ -77,9 +88,9 @@ như nhau trên mọi màn hình. Kéo góc cửa sổ bằng chuột vẫn dùn
 
 ## 5. Tuỳ chỉnh thêm
 
-Phím tắt ẩn/hiện, cỡ nội dung và cỡ ứng dụng chỉnh ngay trong app qua panel
+Phím tắt ẩn/hiện, cỡ nội dung, cỡ cửa sổ và độ trong suốt chỉnh ngay trong app qua panel
 **⚙** — các giá trị này được lưu lại (phím tắt trong `settings.json` ở thư mục
-dữ liệu của app, hai mức zoom trong localStorage) nên không mất khi tắt app.
+dữ liệu của app, các mức zoom và độ trong suốt trong localStorage) nên không mất khi tắt app.
 
 Ngoài ra, mở file `main.js`, phần đầu file có mấy biến dễ chỉnh:
 
@@ -103,7 +114,7 @@ npm run build-mac   # ra app .app trong thư mục dist/ (chạy trên macOS)
 
 ## 7. Phát hành bản mới (người dùng tự cập nhật)
 
-App bản đã cài tự hỏi GitHub Releases của repo `nonelsee/workspace-chat` xem có
+App bản đã cài tự hỏi GitHub Releases của repo `nonelsee/Message_box` xem có
 bản mới không (lúc mở app và mỗi 4 giờ). Có thì tải ngầm, rồi tự cài vào lúc
 cửa sổ đang ẩn xuống tray; app tự mở lại và vẫn ẩn. Người dùng không phải làm
 gì. Cài đặt (phím tắt, đăng nhập...) được giữ nguyên.
@@ -120,7 +131,7 @@ npm run release-win        # build + đẩy .exe, latest.yml, .blockmap lên Git
 ```
 
 Link tải cố định cho người dùng mới (luôn là bản mới nhất):
-`https://github.com/nonelsee/workspace-chat/releases/latest/download/Workspace-Chat-Setup.exe`
+`https://github.com/nonelsee/Message_box/releases/latest/download/Workspace-Chat-Setup.exe`
 
 Lưu ý: số `version` trong `package.json` **phải tăng** mỗi lần phát hành thì
 app cũ mới nhận ra có bản mới. Bản đầu tiên (1.0.0) phải được cài tay một lần;
